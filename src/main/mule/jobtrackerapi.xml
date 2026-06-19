@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="5319c724-8c08-49c4-8139-e50d05b8e2a4" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config1" doc:name="Database Config" doc:id="71cac241-713e-4a3c-950f-943902473f3a" >
+		<db:generic-connection url="jdbc:postgresql://ep-mute-star-at0vouo7.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require" driverClassName="org.postgresql.Driver" user="neondb_owner" password="npg_2gRlapBJ9eiN" />
+	</db:config>
+	<flow name="jobtrackerapiFlow" doc:id="0270abe1-7b15-4d0d-851f-a9684b95a4a9">
+		<http:listener doc:name="Listener" doc:id="021a1c1b-901c-4134-b7c0-811ca12cf96f" config-ref="HTTP_Listener_config" path="/api/jobs" allowedMethods="POST"/>
+		<db:insert doc:name="Insert" doc:id="1ab0ad1d-b8ea-4f62-9e0c-1eade213f53d" config-ref="Database_Config1">
+			<db:sql><![CDATA[INSERT INTO jobs (company, position, date_applied, job_url, status, salary_range, notes) 
+VALUES (:company, :position, :date_applied, :job_url, :status, :salary_range, :notes)]]></db:sql>
+			<db:input-parameters><![CDATA[#[{
+  company: payload.company,
+  position: payload.position,
+  date_applied: payload.date_applied,
+  job_url: payload.job_url,
+  status: payload.status,
+  salary_range: payload.salary_range,
+  notes: payload.notes
+}]]]></db:input-parameters>
+		</db:insert>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="8b4f40fb-c7d9-441f-83a9-dfa6478b2592" >
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    error: true,&#10;    message: "Failed to process request",&#10;    details: error.description&#10;}]' doc:name="Set Payload" doc:id="9c5d019e-811e-433a-b5e1-9cb903882558" />
+			</on-error-propagate>
+		</error-handler>
+	
+</flow>
+	<flow name="jobtrackerapiFlow1" doc:id="2158f2bb-1510-42ff-abfd-03ff9ebd3285">
+		<http:listener doc:name="Get Jobs" doc:id="09b890d0-ffde-40b3-bf3f-9e8e4acd3a65" config-ref="HTTP_Listener_config" path="/api/jobs" allowedMethods="GET" />
+		<db:select doc:name="Select" doc:id="ebba3f2b-a911-4f73-aa39-7df8f19a89e6" config-ref="Database_Config1">
+			<db:sql><![CDATA[SELECT * FROM public.jobs ORDER BY date_applied DESC]]></db:sql>
+		</db:select>
+		<set-payload value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload]" doc:name="Set Payload" doc:id="2e73c041-8368-4680-a295-5ab292728e9d" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="8a2091c1-1811-4810-8cd7-b666fa0cedbf" >
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    error: true,&#10;    message: "Failed to process request",&#10;    details: error.description&#10;}]' doc:name="Set Payload" doc:id="203e50a4-0abe-40c0-b374-e82b994c848e" />
+			</on-error-propagate>
+		</error-handler>
+	
+</flow>
+	<flow name="jobtrackerapiFlow2" doc:id="a17af765-5524-4cae-8f82-b48fce926446">
+		<http:listener doc:name="Update Job" doc:id="347de6c0-6fee-4d85-b458-b8ac7b2d38c7" config-ref="HTTP_Listener_config" path="/api/jobs/{id}" allowedMethods="PUT"/>
+		<db:update doc:name="Update" doc:id="2923fa85-9e13-4fc3-9c2e-5a2dbec9c9b9" config-ref="Database_Config1">
+			<db:sql><![CDATA[UPDATE public.jobs 
+SET status = :status, 
+    interview_date = :interview_date,
+    updated_at = CURRENT_TIMESTAMP 
+WHERE id = :id]]></db:sql>
+			<db:input-parameters><![CDATA[#[{
+  status: payload.status,
+  interview_date: payload.interview_date,
+  id: attributes.uriParams.id
+}]]]></db:input-parameters>
+		</db:update>
+		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    message: "Job updated successfully",&#10;    id: attributes.uriParams.id&#10;}]' doc:name="Set Payload" doc:id="b6dbd9d5-2c85-49cb-baa1-92d4af8145c8" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6ebce375-fb57-4c79-842c-7890780ebb67" >
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    error: true,&#10;    message: "Failed to process request",&#10;    details: error.description&#10;}]' doc:name="Set Payload" doc:id="93c94e80-67cb-493a-8c59-cbb9ce441a22" />
+			</on-error-propagate>
+		</error-handler>
+	
+</flow>
+	<flow name="jobtrackerapiFlow3" doc:id="a3efe9ad-ecfb-4992-b070-506b1cf7df62" >
+		<http:listener doc:name="Get Job By ID" doc:id="539f0cb4-3e3a-4246-96e8-6c0b96086ff0" config-ref="HTTP_Listener_config" path="/api/jobs/{id}" allowedMethods="GET"/>
+		<db:select doc:name="Select" doc:id="0ec48821-2ebb-42a8-8b2a-e9589a31f270" config-ref="Database_Config1">
+			<db:sql ><![CDATA[SELECT * FROM public.jobs WHERE id = :id]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+  id: attributes.uriParams.id
+}]]]></db:input-parameters>
+		</db:select>
+		<set-payload value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload[0]]" doc:name="Set Payload" doc:id="f92534dc-a9b4-469c-9da3-6d5ad4e818b0" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5752891a-a077-414a-880c-4c8f42b603e8" >
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    error: true,&#10;    message: "Failed to process request",&#10;    details: error.description&#10;}]' doc:name="Set Payload" doc:id="0dc19d49-23e0-4dad-8dd9-8350825c4703" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="jobtrackerapiFlow4" doc:id="3ca15ecc-1d5b-4b65-a572-29490335a7d9" >
+		<http:listener doc:name="Get Statistics" doc:id="f935f076-68e7-4d24-9814-4f48b4ccda4c" config-ref="HTTP_Listener_config" path="/api/jobs/stats" allowedMethods="GET"/>
+		<db:select doc:name="Select" doc:id="d2491ce5-ee06-4c25-82e4-ce2ed87721c4" config-ref="Database_Config1">
+			<db:sql ><![CDATA[SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN status = 'Applied' THEN 1 ELSE 0 END) as applied,
+    SUM(CASE WHEN status = 'Interview' THEN 1 ELSE 0 END) as interview,
+    SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
+    SUM(CASE WHEN status = 'Offer' THEN 1 ELSE 0 END) as offers
+FROM public.jobs]]></db:sql>
+		</db:select>
+		<set-payload value="#[%dw 2.0&#10;output application/json&#10;---&#10;payload[0]]" doc:name="Set Payload" doc:id="7d93064a-ff63-4082-a50e-19ad5d05f9d0" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3a659dd5-d5bc-4dd9-a11a-bb62f10e6ccb" >
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    error: true,&#10;    message: "Failed to process request",&#10;    details: error.description&#10;}]' doc:name="Set Payload" doc:id="46615812-3ecf-40ed-89f0-ce4e4198cc79" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="jobtrackerapiFlow5" doc:id="cf0dfccf-7a16-46e5-91c3-9a28769cf121" >
+		<http:listener doc:name="DELETE Job" doc:id="ae1adb01-b567-459d-82fa-cdeb71e76bbc" config-ref="HTTP_Listener_config" path="/api/jobs/{id}"/>
+		<db:delete doc:name="Delete" doc:id="1c76a931-9503-45c9-8318-4e116b847661" config-ref="Database_Config1">
+			<db:sql ><![CDATA[DELETE FROM jobs WHERE id = :id]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+  id: attributes.uriParams.id
+}]]]></db:input-parameters>
+		</db:delete>
+		<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    message: "Job application deleted successfully",&#10;    id: attributes.uriParams.id&#10;}]' doc:name="Set Payload" doc:id="2f46f7a1-f1d3-4c10-8047-b299a7b0462d" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="fe041ce9-34be-411e-b919-46e7bb3d1903" >
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;---&#10;{&#10;    error: true,&#10;    message: "Failed to delete job",&#10;    details: error.description&#10;}]' doc:name="Set Payload" doc:id="e12f4061-c8f9-48d0-8aec-31893637b755" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+
+</mule>
