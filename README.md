@@ -30,4 +30,12 @@ A real-world solution I built to track my own job applications. From application
 ## Result
 Currently tracking real job applications. Fully tested and production ready with error handling and cloud monitoring.
 
+## Upcoming Features
+- AWS SQS integration for event messaging
+- Search and filter jobs by status
+- Email notifications for interviews
+- Publish API spec to Anypoint Exchange
+- Front-end dashboard for visualization
+
 Built to demonstrate: Integration design, cloud deployment, REST API development, database management
+
